@@ -1,0 +1,23 @@
+[project]
+name = "albert-api-wrapper"
+version = "0.1.0"
+description = "Wrapper Python pour l'API Albert"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.1",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+addopts = ["-ra", "-q"]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
