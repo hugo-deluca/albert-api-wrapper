@@ -7,6 +7,6 @@ class APIConfig:
     """Configuration for the API connection"""
     api_key: str
     base_url: str
-    timeout: int = 30
+    timeout: int = None
     max_retries: int = 3
     retry_delay: float = 1.0
