@@ -2,28 +2,10 @@ import os
 import mimetypes
 import time
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 import requests
 
 from .config import APIConfig
 
-
-@dataclass
-class APIConfig:
-    """Configuration for the Albert API connection.
-
-    Attributes:
-        api_key (str): API key for authentication
-        base_url (str): Base URL of the Albert API
-        timeout (int): Request timeout in seconds (default: 30)
-        max_retries (int): Maximum number of retry attempts (default: 3)
-        retry_delay (float): Delay between retries in seconds (default: 1.0)
-    """
-    api_key: str
-    base_url: str
-    timeout: int = 30
-    max_retries: int = 3
-    retry_delay: float = 1.0
 
 class AlbertAPIWrapper:
     """A Python wrapper for interacting with Albert via API.
