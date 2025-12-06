@@ -4,11 +4,9 @@ import time
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 import requests
-from dotenv import load_dotenv
 
 from .config import APIConfig
 
-load_dotenv()
 
 @dataclass
 class APIConfig:
@@ -106,8 +104,8 @@ class AlbertAPIWrapper:
                     headers=headers,
                     data=payload,
                     files=files,
-                    timeout=self.config.timeout,
-                    **kwargs
+                    # timeout=self.config.timeout,
+                    # **kwargs
                 )
             else:
                 response = requests.request(
@@ -291,7 +289,7 @@ class AlbertAPIWrapper:
         """Upload a file to create a new document.
 
         Args:
-            file_name (str): Name of the file
+            file_name (str): Name of the file as will be referenced in Albert API
             file_path (str): Path to the file
             collection_id (int): ID of the collection to add the document to
             **kwargs: Additional parameters for the API request
@@ -299,7 +297,12 @@ class AlbertAPIWrapper:
         Returns:
             Dict[str, Any]: Response containing the created document ID
         """
-        mime_type = self._guess_mime_type(file_name)
+        if not os.path.exists(file_path):
+            raise ValueError(f"File not found: {file_path}")
+
+        basename = os.path.basename(file_path)
+        mime_type = self._guess_mime_type(basename)
+
         endpoint = self.DOCUMENTS_ENDPOINT
         data = {
             'collection': collection_id
@@ -330,25 +333,22 @@ class AlbertAPIWrapper:
     # =============================================
     # OCR (OPTICAL CHARACTER RECOGNITION)
     # =============================================
-    # FIXME? Error 500 when requesting this endpoint
 
     def ocr_document(
         self,
         file_path: str,
         model: str = 'albert-large',
         dpi: int = 150,
-        prompt: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> List[str]:
         """Extract text from PDF files using OCR.
 
         Args:
             file_path (str): Path to the PDF file to process
             model (str): The OCR model to use
             dpi (int): DPI for image rendering (100-600, default: 150)
-            prompt (str, optional): Custom prompt for OCR processing
 
         Returns:
-            Dict[str, Any]: OCR results containing extracted text
+            List[str]: OCR results (one string per page)
 
         Raises:
             ValueError: If file_path doesn't exist or dpi is out of range
@@ -361,16 +361,6 @@ class AlbertAPIWrapper:
         if not (100 <= dpi <= 600):
             raise ValueError("DPI must be between 100 and 600")
 
-        # Default prompt if none provided
-        default_prompt = (
-            "Tu es un système d'OCR très précis. Extrait tout le texte visible de cette image. "
-            "Ne décris pas l'image, n'ajoute pas de commentaires. Réponds uniquement avec le texte brut extrait, "
-            "en préservant les paragraphes, la mise en forme et la structure du document. "
-            "Si aucun texte n'est visible, réponds avec 'Aucun texte détecté'. "
-            "Je veux une sortie au format markdown. Tu dois respecter le format de sortie pour bien conserver les tableaux."
-        )
-        prompt = prompt or default_prompt
-
         # Prepare the file data
         file_name = os.path.basename(file_path)
         mime_type = self._guess_mime_type(file_name)
@@ -379,9 +369,7 @@ class AlbertAPIWrapper:
         data = {
             'model': model,
             'dpi': dpi,
-            'prompt': prompt
         }
-
         files = {
             'file': (file_name, open(file_path, 'rb'), mime_type)
         }
@@ -395,8 +383,10 @@ class AlbertAPIWrapper:
                 files=files
             )
 
-            # Extract and return the text content
-            return response
+            return [
+                p['content'] for p in response["data"]
+            ]
+            
         finally:
             # Ensure the file is closed
             if 'file' in files:

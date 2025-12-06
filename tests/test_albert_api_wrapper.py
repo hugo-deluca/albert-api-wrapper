@@ -95,9 +95,10 @@ class TestCollections:
         assert result == {}
 
 class TestDocuments:
+    @patch('albert_wrapper.albert_api_wrapper.os.path.exists')
     @patch('albert_wrapper.albert_api_wrapper.requests.request')
     @patch('builtins.open', new_callable=mock_open, read_data=b'fake file content')
-    def test_create_document_uploads_file(self, mock_file, mock_request, wrapper):
+    def test_create_document_uploads_file(self, mock_open_file, mock_request, mock_exists, wrapper):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {'id': 769918}
@@ -113,6 +114,19 @@ class TestDocuments:
         args, kwargs = mock_request.call_args
         assert kwargs['files'] is not None
         assert kwargs['data']['collection'] == 783
+    
+    @patch('albert_wrapper.albert_api_wrapper.os.path.exists')
+    def test_create_document_raises_when_file_not_found(self, mock_exists, wrapper):
+        mock_exists.return_value = False
+        
+        with pytest.raises(ValueError, match="File not found: /nonexistent/file.pdf"):
+            wrapper.create_document(
+                'test.pdf',
+                '/nonexistent/file.pdf',
+                collection_id=783
+            )
+        
+        mock_exists.assert_called_once_with('/nonexistent/file.pdf')
 
 class TestRetryLogic:
     @patch('albert_wrapper.albert_api_wrapper.requests.request')
