@@ -1,10 +1,14 @@
 # Albert API Wrapper
 
-Une bibliothèque Python pour interagir avec l'API Albert d'Etalab, accompagnée d'une interface web pour gérer vos collections et documents.
+Une bibliothèque Python pour interagir avec [l'API Albert d'Etalab](https://albert.sites.beta.gouv.fr/), accompagnée d'une interface web pour gérer les collections et les documents.
 
-Disclaimer. Je ne suis pas affilié à Etalab ou au produit Albert.
+![docs/img/dashboard.png](docs/img/collections.png)
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+> **Disclaimer.**  
+> Je ne suis pas affilié à Etalab ou au produit Albert.  
+> Cette librairie est un alpha en cours de développement pour intégration dans d'autres applications et faciliter la gestion des fichiers et des collections.  
+> Cette librairie a été développée avec l'aide de LLMs.
+
 
 ## Table des matières
 
@@ -13,7 +17,6 @@ Disclaimer. Je ne suis pas affilié à Etalab ou au produit Albert.
 - [Configuration](#configuration)
 - [Utilisation du wrapper Python](#utilisation-du-wrapper-python)
 - [Interface web](#interface-web)
-- [Documentation API](#documentation-api)
 - [Tests](#tests)
 - [Contribution](#contribution)
 
@@ -39,7 +42,7 @@ Disclaimer. Je ne suis pas affilié à Etalab ou au produit Albert.
 
 ### Prérequis
 
-- Python 3.12
+- Python >=3.11
 - Une clé API Albert 
 
 ### Installation depuis GitHub
@@ -283,15 +286,14 @@ def main():
 
 #### Collections
 - **Visualisation** : Cartes avec badges de visibilité (privé/public)
-- **Création** : Modal avec nom et description
+- **Création** : Modale avec nom et description
 - **Suppression** : Confirmation avant suppression
 - **Navigation** : Lien direct vers les documents de chaque collection
 
 #### Documents
 - **Liste paginée** : 10, 20, 50 ou 100 documents par page
 - **Filtrage** : Par collection et nom
-- **Recherche** : Recherche en temps réel
-- **Upload** : Drag & drop de fichiers (max 16MB)
+- **Recherche** : Recherche par nom
 - **Métadonnées** : Affichage des chunks et date de création
 - **Actions** : Suppression avec confirmation
 
@@ -299,9 +301,11 @@ def main():
 
 WORK IN PROGRESS. Pas d'historique de conversation conservé.
 
-- **Modèles** : Sélection entre albert-small et albert-large
+- **Modèles** : Sélection entre différents modèles
 - **Mode simple** : Chat direct avec Albert
 - **Mode RAG** : Recherche dans vos collections sélectionnées
+
+Attention, les gestions d'erreurs en cas de choix de modèle inapproprié ne sont pas encore prises en compte.
 
 ## Tests
 
@@ -316,9 +320,6 @@ pytest tests/test_wrapper.py
 
 # Tests d'intégration (nécessite ALBERT_API_KEY)
 pytest tests/test_integration.py -m integration
-
-# Avec couverture
-pytest --cov=albert_wrapper --cov-report=html
 ```
 
 ### Structure des tests
@@ -425,3 +426,7 @@ config = APIConfig(
 ## Licence
 
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## Remerciements
+
+Merci à [Etalab](https://etalab.gouv.fr) pour le développement de cette API.
