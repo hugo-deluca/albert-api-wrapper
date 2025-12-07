@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Albert API Manager{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Albert API Manager</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.dashboard') }}" {% if request.endpoint == 'main.dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+                <li><a href="{{ url_for('main.collections') }}" {% if request.endpoint == 'main.collections' %}class="active"{% endif %}>Collections</a></li>
+                <li><a href="{{ url_for('main.documents') }}" {% if request.endpoint == 'main.documents' %}class="active"{% endif %}>Documents</a></li>
+                <li><a href="{{ url_for('main.chat') }}" {% if request.endpoint == 'main.chat' %}class="active"{% endif %}>Chat</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

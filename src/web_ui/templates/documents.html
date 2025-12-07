@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents - Albert API</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Albert API Manager</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('main.collections') }}">Collections</a></li>
+                <li><a href="{{ url_for('main.documents') }}" class="active">Documents</a></li>
+                <li><a href="{{ url_for('main.chat') }}">Chat</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="page-header">
+            <h2>Documents</h2>
+            <button class="btn btn-primary" onclick="showUploadModal()">+ Upload Document</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="documents-filters">
+            <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                <label for="nameSearch">Search by name</label>
+                <input type="text" id="nameSearch" placeholder="Enter document name..." value="{{ request.args.get('name', '') }}">
+            </div>
+            <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                <label for="collectionFilter">Filter by Collection</label>
+                <select id="collectionFilter" onchange="applyFilters()">
+                    <option value="0">All Collections</option>
+                    {% for collection in collections %}
+                    <option value="{{ collection.id }}" {% if collection.id == selected_collection %}selected{% endif %}>
+                        {{ collection.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0; width: 120px;">
+                <label for="limitSelect">Per page</label>
+                <select id="limitSelect" onchange="applyFilters()">
+                    <option value="10" {% if limit == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if limit == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if limit == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="applyFilters()" style="margin-top: 1.5rem;">
+                🔍 Search
+            </button>
+            <button class="btn btn-secondary" onclick="clearFilters()" style="margin-top: 1.5rem;">
+                ✕ Clear
+            </button>
+        </div>
+
+        <!-- Documents Table -->
+        <div class="documents-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Collection</th>
+                        <th>Chunks</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="documentsTableBody">
+                    {% for doc in documents %}
+                    <tr data-id="{{ doc.id }}">
+                        <td><span class="badge">{{ doc.id }}</span></td>
+                        <td>
+                            <strong>{{ doc.name }}</strong>
+                        </td>
+                        <td>
+                            {% for collection in collections %}
+                                {% if collection.id == doc.collection_id %}
+                                    <span class="badge badge-collection">{{ collection.name }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>{{ doc.chunks }}</td>
+                        <td>{{ doc.created|format_timestamp }}</td>
+                        <td>
+                            <button class="btn-icon btn-danger" onclick="deleteDocument({{ doc.id }})" title="Delete">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if not documents %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: #95a5a6;">
+                            No documents found. Upload your first document to get started!
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-controls">
+            <div class="pagination-info">
+                Page {{ current_page }} (showing {{ documents|length }} items)
+            </div>
+            <div class="pagination-buttons">
+                {% if current_page > 1 %}
+                <button class="btn btn-secondary" onclick="goToPage({{ current_page - 1 }})">
+                    ← Previous
+                </button>
+                {% endif %}
+                
+                {% if has_more %}
+                <button class="btn btn-secondary" onclick="goToPage({{ current_page + 1 }})">
+                    Next →
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Document Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeUploadModal()">&times;</span>
+            <h3>Upload Document</h3>
+            <form id="uploadDocumentForm" onsubmit="uploadDocument(event)">
+                <div class="form-group">
+                    <label for="documentCollection">Collection *</label>
+                    <select id="documentCollection" name="collection_id" required>
+                        <option value="">Select a collection</option>
+                        {% for collection in collections %}
+                        <option value="{{ collection.id }}">{{ collection.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="documentFile">File *</label>
+                    <input type="file" id="documentFile" name="file" required>
+                    <small style="color: #666; display: block; margin-top: 0.5rem;">
+                        Supported formats: PDF, TXT, DOCX, JSON, etc. (Max 16MB)
+                    </small>
+                </div>
+
+                <div id="uploadProgress" style="display: none; margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div class="loading"></div>
+                        <span id="uploadStatus">Uploading...</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="uploadButton">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showUploadModal() {
+            document.getElementById('uploadModal').style.display = 'block';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').style.display = 'none';
+            document.getElementById('uploadDocumentForm').reset();
+            document.getElementById('uploadProgress').style.display = 'none';
+        }
+
+        async function uploadDocument(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            const uploadButton = document.getElementById('uploadButton');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            // Show progress
+            uploadButton.disabled = true;
+            uploadProgress.style.display = 'block';
+            uploadStatus.textContent = 'Upload en cours...';
+
+            try {
+                const response = await fetch('/api/documents', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    uploadStatus.textContent = 'Upload réussi !';
+                    showToast('Document uploadé avec succès !', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    uploadStatus.textContent = 'Upload échoué';
+                    showToast('Erreur: ' + result.error, 'error');
+                    uploadButton.disabled = false;
+                    uploadProgress.style.display = 'none';
+                }
+            } catch (error) {
+                uploadStatus.textContent = 'Upload échoué';
+                showToast('Erreur lors de l\'upload: ' + error.message, 'error');
+                uploadButton.disabled = false;
+                uploadProgress.style.display = 'none';
+            }
+        }
+
+        async function deleteDocument(documentId) {
+            showConfirm(
+                'Êtes-vous sûr de vouloir supprimer ce document ? Cette action est irréversible.',
+                async () => {
+                    const loading = showLoading('Suppression en cours...');
+
+                    try {
+                        const response = await fetch(`/api/documents/${documentId}`, {
+                            method: 'DELETE'
+                        });
+
+                        const result = await response.json();
+
+                        hideLoading();
+
+                        if (result.success) {
+                            // Remove the row from the table
+                            const row = document.querySelector(`tr[data-id="${documentId}"]`);
+                            if (row) {
+                                row.remove();
+                            }
+                            showToast('Document supprimé avec succès !', 'success');
+                            
+                            // If no more documents, reload to show empty state
+                            const tbody = document.getElementById('documentsTableBody');
+                            if (tbody.querySelectorAll('tr').length === 0) {
+                                setTimeout(() => location.reload(), 1000);
+                            }
+                        } else {
+                            showToast('Erreur: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        hideLoading();
+                        showToast('Erreur lors de la suppression: ' + error.message, 'error');
+                    }
+                }
+            );
+        }
+
+        function applyFilters() {
+            const collectionId = document.getElementById('collectionFilter').value;
+            const limit = document.getElementById('limitSelect').value;
+            const name = document.getElementById('nameSearch').value.trim();
+            
+            let url = `{{ url_for('main.documents') }}?collection=${collectionId}&limit=${limit}`;
+            if (name) {
+                url += `&name=${encodeURIComponent(name)}`;
+            }
+            window.location.href = url;
+        }
+
+        function clearFilters() {
+            window.location.href = `{{ url_for('main.documents') }}`;
+        }
+
+        function goToPage(page) {
+            const collectionId = document.getElementById('collectionFilter').value;
+            const limit = document.getElementById('limitSelect').value;
+            const name = document.getElementById('nameSearch').value.trim();
+            
+            let url = `{{ url_for('main.documents') }}?collection=${collectionId}&limit=${limit}&page=${page}`;
+            if (name) {
+                url += `&name=${encodeURIComponent(name)}`;
+            }
+            window.location.href = url;
+        }
+
+        async function refreshDocuments() {
+            location.reload();
+        }
+
+        // Allow Enter key to trigger search
+        document.addEventListener('DOMContentLoaded', function() {
+            const nameSearch = document.getElementById('nameSearch');
+            nameSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('uploadModal');
+            if (event.target == modal) {
+                closeUploadModal();
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

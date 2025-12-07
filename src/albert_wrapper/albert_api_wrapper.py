@@ -261,44 +261,50 @@ class AlbertAPIWrapper:
         endpoint = f"{self.DOCUMENTS_ENDPOINT}/{document_id}"
         return self._make_request(endpoint)
 
-    def create_document(
-        self,
-        file_name: str,
-        file_path: str,
-        collection_id: int,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """Upload a file to create a new document.
-
-        Args:
-            file_name (str): Name of the file as will be referenced in Albert API
-            file_path (str): Path to the file
-            collection_id (int): ID of the collection to add the document to
-            **kwargs: Additional parameters for the API request
-
-        Returns:
-            Dict[str, Any]: Response containing the created document ID
+    def create_document(self, file_name: str, file_path: str = None, file_obj=None, collection_id: int = None, **kwargs) -> Dict[str, Any]:
         """
-        if not os.path.exists(file_path):
+        Uploads a file to the API.
+        
+        Args:
+            file_name: Name of the file
+            file_path: Path to the file (optional if file_obj provided)
+            file_obj: File-like object (optional if file_path provided)
+            collection_id: ID of the collection
+            **kwargs: Additional parameters to pass to the API
+        
+        Returns:
+            Dict[str, Any]: {'id': document_id}
+        
+        Raises:
+            ValueError: If neither file_path nor file_obj is provided
+            ValueError: If file_path doesn't exist
+        """
+        if file_path is None and file_obj is None:
+            raise ValueError("Either file_path or file_obj must be provided")
+        
+        if file_path and not os.path.exists(file_path):
             raise ValueError(f"File not found: {file_path}")
-
-        basename = os.path.basename(file_path)
-        mime_type = self._guess_mime_type(basename)
-
+        
+        mime_type = self._guess_mime_type(file_name)
         endpoint = self.DOCUMENTS_ENDPOINT
+        
         data = {
-            'collection': collection_id
-        }
-        files = {
-            "file": (file_name, open(file_path, "rb"), mime_type)
-        }
-        return self._make_request(
-            endpoint,
-            'POST',
-            payload=data,
-            files=files,
+            'collection': collection_id,
             **kwargs
-        )
+        }
+        
+        # Use file_obj if provided, otherwise open file_path
+        if file_obj:
+            files = {
+                "file": (file_name, file_obj, mime_type)
+            }
+            return self._make_request(endpoint, 'POST', payload=data, files=files)
+        else:
+            with open(file_path, "rb") as f:
+                files = {
+                    "file": (file_name, f, mime_type)
+                }
+                return self._make_request(endpoint, 'POST', payload=data, files=files)
 
     def delete_document(self, document_id: int) -> Dict[str, Any]:
         """Delete a document from the API.
@@ -441,23 +447,30 @@ class AlbertAPIWrapper:
         chat_kwargs: dict = None
     ) -> str:
         """
-        Returns Albert's response based on search results from specified collections.
+        Returns Albert's response to a given prompt as a string, based on the search results
+        from files in specified collections
         
         Args:
-            prompt: The question to answer
-            collections: List of collection IDs to search
-            model: Model to use for chat
+            prompt: The user's question
+            collections: List of collection IDs to search in
+            model: Model to use for chat completion
             search_kwargs: Additional parameters for search (e.g., limit, method)
             chat_kwargs: Additional parameters for chat (e.g., temperature, max_tokens)
+        
+        Returns:
+            str: Albert's response
         """
         search_kwargs = search_kwargs or {}
         chat_kwargs = chat_kwargs or {}
         
+        # Search for relevant chunks
         search_results = self.search(prompt, collections, **search_kwargs)
         
+        # Build augmented prompt with retrieved chunks
         prompt_template = "Réponds à la question suivante en te basant sur les documents ci-dessous : {prompt}\n\nDocuments :\n{chunks}"
         chunks = "\n\n\n".join([result["chunk"]["content"] for result in search_results])
         augmented_prompt = prompt_template.format(prompt=prompt, chunks=chunks)
         
+        # Get chat response
         chat_response = self.chat(augmented_prompt, model, **chat_kwargs)
         return chat_response

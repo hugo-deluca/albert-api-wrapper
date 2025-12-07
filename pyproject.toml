@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "albert-api-wrapper"
 version = "0.1.0"
@@ -9,10 +13,22 @@ dependencies = [
     "requests>=2.32.5",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "pytest>=9.0.1",
+  "ruff",
+  "pytest>=9.0.1",
 ]
+web = [
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+]
+
+[project.scripts]
+albert-ui = "web_ui.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/albert_wrapper", "src/web_ui"]
+
 
 [tool.pytest.ini_options]
 minversion = "9.0"

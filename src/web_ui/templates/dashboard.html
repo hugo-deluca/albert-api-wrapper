@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Albert API Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Albert API Manager</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.dashboard') }}" class="active">Dashboard</a></li>
+                <li><a href="{{ url_for('main.collections') }}">Collections</a></li>
+                <li><a href="{{ url_for('main.documents') }}">Documents</a></li>
+                <li><a href="{{ url_for('main.chat') }}">Chat</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <h2>Dashboard</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🏥</div>
+                <div class="stat-info">
+                    <h3>API Status</h3>
+                    <p class="stat-value {% if health.status == 'ok' %}status-ok{% else %}status-error{% endif %}">
+                        {{ health.status|upper }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📁</div>
+                <div class="stat-info">
+                    <h3>Collections</h3>
+                    <p class="stat-value">{{ collections_count }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🤖</div>
+                <div class="stat-info">
+                    <h3>Available Models</h3>
+                    <p class="stat-value">{{ models_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <h3>Quick Actions</h3>
+            <div class="action-buttons">
+                <a href="{{ url_for('main.collections') }}" class="btn btn-primary">Manage Collections</a>
+                <a href="{{ url_for('main.documents') }}" class="btn btn-primary">Upload Documents</a>
+                <a href="{{ url_for('main.chat') }}" class="btn btn-success">Start Chat</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
