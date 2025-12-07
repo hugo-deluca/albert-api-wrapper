@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Albert API</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Albert API Manager</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('main.collections') }}">Collections</a></li>
+                <li><a href="{{ url_for('main.documents') }}">Documents</a></li>
+                <li><a href="{{ url_for('main.chat') }}" class="active">Chat</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="chat-container">
+            <!-- Sidebar -->
+            <div class="chat-sidebar">
+                <h3>Chat Settings</h3>
+                
+                <div class="form-group">
+                    <label for="modelSelect">Model</label>
+                    <select id="modelSelect">
+                        {% for model in models %}
+                        <option value="{{ model.id }}" {% if model.id == 'albert-large' %}selected{% endif %}>
+                            {{ model.id }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="useRAG" onchange="toggleCollections()">
+                        Use RAG (Search in Collections)
+                    </label>
+                </div>
+
+                <div id="collectionsSection" style="display: none;">
+                    <div class="form-group">
+                        <label>Select Collections</label>
+                        <div class="collections-checklist">
+                            {% for collection in collections %}
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="collections" value="{{ collection.id }}">
+                                {{ collection.name }}
+                            </label>
+                            {% endfor %}
+                            
+                            {% if not collections %}
+                            <p style="color: #95a5a6; font-size: 0.875rem;">
+                                No collections available. 
+                                <a href="{{ url_for('main.collections') }}">Create one</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-secondary" onclick="clearChat()" style="width: 100%; margin-top: 1rem;">
+                    Clear Chat
+                </button>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="chat-main">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <h2>👋 Bienvenue sur Albert Chat</h2>
+                        <p>Posez vos questions ou activez le RAG pour rechercher dans vos documents.</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <form id="chatForm" onsubmit="sendMessage(event); return false;">
+                        <div class="chat-input-wrapper">
+                            <div class="chat-input">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="Tapez votre message..."
+                                    rows="2"
+                                    required
+                                    onkeydown="handleKeyPress(event)"
+                                ></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="sendButton">
+                                Envoyer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chatHistory = [];
+
+        function toggleCollections() {
+            const useRAG = document.getElementById('useRAG').checked;
+            const collectionsSection = document.getElementById('collectionsSection');
+            collectionsSection.style.display = useRAG ? 'block' : 'none';
+        }
+
+        function handleKeyPress(event) {
+            // Send on Enter, new line on Shift+Enter
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                event.stopPropagation();
+                sendMessage(event);
+                return false;
+            }
+        }
+
+        async function sendMessage(event) {
+            // Prevent form submission immediately
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message) return false;
+
+            const sendButton = document.getElementById('sendButton');
+            const modelSelect = document.getElementById('modelSelect');
+            const useRAG = document.getElementById('useRAG').checked;
+
+            // Get selected collections if RAG is enabled
+            let selectedCollections = [];
+            if (useRAG) {
+                const checkboxes = document.querySelectorAll('input[name="collections"]:checked');
+                selectedCollections = Array.from(checkboxes).map(cb => parseInt(cb.value));
+                
+                if (selectedCollections.length === 0) {
+                    alert('Veuillez sélectionner au moins une collection pour utiliser le RAG.');
+                    return;
+                }
+            }
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            messageInput.value = '';
+
+            // Disable input while processing
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            sendButton.innerHTML = '<div class="loading"></div>';
+
+            try {
+                const payload = {
+                    prompt: message,
+                    model: modelSelect.value,
+                    collections: selectedCollections
+                };
+                
+                console.log('Sending chat request:', payload);
+
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                // Get the raw response text first
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`);
+                }
+
+                // Try to parse as JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    throw new Error('Invalid JSON response: ' + responseText.substring(0, 100));
+                }
+                
+                console.log('Parsed result:', result);
+
+                if (result.success) {
+                    // Handle different response formats
+                    const assistantMessage = result.response || result.data || 'No response';
+                    if (!assistantMessage || assistantMessage === 'No response') {
+                        console.error('No valid response in result:', result);
+                        throw new Error('Empty response from server');
+                    }
+                    addMessage(assistantMessage, 'assistant');
+                    chatHistory.push({
+                        user: message,
+                        assistant: assistantMessage
+                    });
+                } else {
+                    const errorMsg = result.error || 'Unknown error';
+                    console.error('API returned error:', errorMsg);
+                    addMessage('Erreur: ' + errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Chat error details:', error);
+                console.error('Error stack:', error.stack);
+                addMessage('Erreur de connexion: ' + error.message, 'error');
+            } finally {
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.textContent = 'Envoyer';
+                messageInput.focus();
+            }
+            
+            return false; // Ensure form doesn't submit
+        }
+
+        function addMessage(text, type) {
+            const messagesContainer = document.getElementById('chatMessages');
+            
+            // Remove welcome message if it exists
+            const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${type}`;
+            
+            // Format the message text (preserve line breaks)
+            const formattedText = text.replace(/\n/g, '<br>');
+            messageDiv.innerHTML = formattedText;
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function clearChat() {
+            if (confirm('Êtes-vous sûr de vouloir effacer la conversation ?')) {
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>👋 Bienvenue sur Albert Chat</h2>
+                        <p>Posez vos questions ou activez le RAG pour rechercher dans vos documents.</p>
+                    </div>
+                `;
+                chatHistory = [];
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

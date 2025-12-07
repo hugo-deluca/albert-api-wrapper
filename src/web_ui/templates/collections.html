@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collections - Albert API</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Albert API Manager</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('main.collections') }}" class="active">Collections</a></li>
+                <li><a href="{{ url_for('main.documents') }}">Documents</a></li>
+                <li><a href="{{ url_for('main.chat') }}">Chat</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="page-header">
+            <h2>Collections</h2>
+            <button class="btn btn-primary" onclick="showCreateModal()">+ New Collection</button>
+        </div>
+
+        <div class="collections-grid" id="collectionsGrid">
+            {% for collection in collections %}
+            <div class="collection-card" data-id="{{ collection.id }}">
+                <div class="collection-header">
+                    <div>
+                        <h3>{{ collection.name }}</h3>
+                        {% if collection.visibility == 'private' %}
+                        <span class="badge badge-private" title="Private collection">🔒 Private</span>
+                        {% else %}
+                        <span class="badge badge-public" title="Public collection">🌐 Public</span>
+                        {% endif %}
+                    </div>
+                    <button class="btn-icon btn-danger" onclick="deleteCollection({{ collection.id }})">🗑️</button>
+                </div>
+                <p class="collection-description">{{ collection.description or 'No description' }}</p>
+                <div class="collection-footer">
+                    <span class="badge">ID: {{ collection.id }}</span>
+                    <a href="{{ url_for('main.documents', collection=collection.id) }}" class="btn btn-small">View Documents</a>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if not collections %}
+            <div class="empty-state">
+                <p>No collections yet. Create your first collection to get started!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Create Collection Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateModal()">&times;</span>
+            <h3>Create New Collection</h3>
+            <form id="createCollectionForm" onsubmit="createCollection(event)">
+                <div class="form-group">
+                    <label for="collectionName">Name *</label>
+                    <input type="text" id="collectionName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="collectionDescription">Description</label>
+                    <textarea id="collectionDescription" name="description" rows="3"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showCreateModal() {
+            document.getElementById('createModal').style.display = 'block';
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').style.display = 'none';
+            document.getElementById('createCollectionForm').reset();
+        }
+
+        async function createCollection(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description')
+            };
+
+            try {
+                const response = await fetch('/api/collections', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Collection created successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error creating collection: ' + error);
+            }
+        }
+
+        async function deleteCollection(collectionId) {
+            if (!confirm('Are you sure you want to delete this collection?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/collections/${collectionId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Collection deleted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error deleting collection: ' + error);
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('createModal');
+            if (event.target == modal) {
+                closeCreateModal();
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
