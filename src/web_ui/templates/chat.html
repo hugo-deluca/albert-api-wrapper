@@ -249,16 +249,20 @@
         }
 
         function clearChat() {
-            if (confirm('Êtes-vous sûr de vouloir effacer la conversation ?')) {
-                const messagesContainer = document.getElementById('chatMessages');
-                messagesContainer.innerHTML = `
-                    <div class="welcome-message">
-                        <h2>👋 Bienvenue sur Albert Chat</h2>
-                        <p>Posez vos questions ou activez le RAG pour rechercher dans vos documents.</p>
-                    </div>
-                `;
-                chatHistory = [];
-            }
+            showConfirm(
+                'Êtes-vous sûr de vouloir effacer la conversation ?',
+                () => {
+                    const messagesContainer = document.getElementById('chatMessages');
+                    messagesContainer.innerHTML = `
+                        <div class="welcome-message">
+                            <h2>👋 Bienvenue sur Albert Chat</h2>
+                            <p>Posez vos questions ou activez le RAG pour rechercher dans vos documents.</p>
+                        </div>
+                    `;
+                    chatHistory = [];
+                    showToast('Conversation effacée', 'info');
+                }
+            );
         }
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

@@ -198,7 +198,7 @@
             // Show progress
             uploadButton.disabled = true;
             uploadProgress.style.display = 'block';
-            uploadStatus.textContent = 'Uploading...';
+            uploadStatus.textContent = 'Upload en cours...';
 
             try {
                 const response = await fetch('/api/documents', {
@@ -209,56 +209,60 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    uploadStatus.textContent = 'Upload successful!';
-                    setTimeout(() => {
-                        alert('Document uploaded successfully!');
-                        location.reload();
-                    }, 500);
+                    uploadStatus.textContent = 'Upload réussi !';
+                    showToast('Document uploadé avec succès !', 'success');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
-                    uploadStatus.textContent = 'Upload failed';
-                    alert('Error: ' + result.error);
+                    uploadStatus.textContent = 'Upload échoué';
+                    showToast('Erreur: ' + result.error, 'error');
                     uploadButton.disabled = false;
                     uploadProgress.style.display = 'none';
                 }
             } catch (error) {
-                uploadStatus.textContent = 'Upload failed';
-                alert('Error uploading document: ' + error);
+                uploadStatus.textContent = 'Upload échoué';
+                showToast('Erreur lors de l\'upload: ' + error.message, 'error');
                 uploadButton.disabled = false;
                 uploadProgress.style.display = 'none';
             }
         }
 
         async function deleteDocument(documentId) {
-            if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
-                return;
-            }
+            showConfirm(
+                'Êtes-vous sûr de vouloir supprimer ce document ? Cette action est irréversible.',
+                async () => {
+                    const loading = showLoading('Suppression en cours...');
 
-            try {
-                const response = await fetch(`/api/documents/${documentId}`, {
-                    method: 'DELETE'
-                });
+                    try {
+                        const response = await fetch(`/api/documents/${documentId}`, {
+                            method: 'DELETE'
+                        });
 
-                const result = await response.json();
+                        const result = await response.json();
 
-                if (result.success) {
-                    // Remove the row from the table
-                    const row = document.querySelector(`tr[data-id="${documentId}"]`);
-                    if (row) {
-                        row.remove();
+                        hideLoading();
+
+                        if (result.success) {
+                            // Remove the row from the table
+                            const row = document.querySelector(`tr[data-id="${documentId}"]`);
+                            if (row) {
+                                row.remove();
+                            }
+                            showToast('Document supprimé avec succès !', 'success');
+                            
+                            // If no more documents, reload to show empty state
+                            const tbody = document.getElementById('documentsTableBody');
+                            if (tbody.querySelectorAll('tr').length === 0) {
+                                setTimeout(() => location.reload(), 1000);
+                            }
+                        } else {
+                            showToast('Erreur: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        hideLoading();
+                        showToast('Erreur lors de la suppression: ' + error.message, 'error');
                     }
-                    alert('Document deleted successfully!');
-                    
-                    // If no more documents, reload to show empty state
-                    const tbody = document.getElementById('documentsTableBody');
-                    if (tbody.querySelectorAll('tr').length === 0) {
-                        location.reload();
-                    }
-                } else {
-                    alert('Error: ' + result.error);
                 }
-            } catch (error) {
-                alert('Error deleting document: ' + error);
-            }
+            );
         }
 
         function applyFilters() {
